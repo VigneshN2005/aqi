@@ -25,7 +25,7 @@ def load_resources():
         print("Building model architecture...")
         model = build_model()
         print("Loading weights...")
-        model.load_weights("model.weights.h5")  # <-- weights file from the zip
+        model.load_weights("air_quality_model.h5")  # <-- weights file from the zip
         print("Model ready.")
     if scaler is None:
         print("Loading scaler...")
