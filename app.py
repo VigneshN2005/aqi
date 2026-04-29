@@ -19,7 +19,7 @@ def load_resources():
         print("Loading model...")
 
         model = keras.models.load_model(
-            "air_quality_model.keras",
+            "air_quality_model.h5",
             compile=False,
             safe_mode=False  # 🔥 bypass strict checks
         )
