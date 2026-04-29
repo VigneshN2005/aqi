@@ -6,11 +6,10 @@ import os
 
 app = Flask(__name__)
 
-# 🔹 Lazy loading variables
+# Lazy loading
 model = None
 scaler = None
 
-# 🔹 Load model & scaler only when needed
 def load_resources():
     global model, scaler
     if model is None:
@@ -21,7 +20,7 @@ def load_resources():
         scaler = joblib.load("scaler.pkl")
 
 
-# 🔹 AQI Category
+# AQI Category
 def categorize(val):
     if val < 1:
         return "Good"
@@ -31,7 +30,7 @@ def categorize(val):
         return "Poor"
 
 
-# 🔹 Health Advice
+# Health Advice
 def advice(cat):
     if cat == "Good":
         return "Air quality is safe for all activities."
@@ -41,37 +40,58 @@ def advice(cat):
         return "Avoid outdoor exposure. Health risk detected."
 
 
-# 🔹 Home Route
+# Home
 @app.route('/')
 def home():
     return render_template('index.html')
 
 
-# 🔹 Prediction Route
+# Predict
 @app.route('/predict', methods=['POST'])
 def predict():
-    load_resources()  # ✅ ensures model loads only when needed
+    try:
+        load_resources()
 
-    values = [float(x) for x in request.form.values()]
-    data = np.array(values).reshape(1, -1)
+        # 🔴 safer input handling
+        values = []
+        for key in request.form:
+            val = request.form.get(key)
 
-    scaled = scaler.transform(data)
-    seq = np.repeat(scaled, 10, axis=0).reshape(1, 10, -1)
+            if val is None or val.strip() == "":
+                return "Error: All input fields must be filled"
 
-    pred = model.predict(seq)[0][0]
-    cat = categorize(pred)
+            values.append(float(val))
 
-    return render_template(
-        'index.html',
-        prediction=round(pred, 2),
-        category=cat,
-        advice=advice(cat),
-        raw=list(data[0]),
-        norm=list(scaled[0])
-    )
+        # 🔴 enforce correct feature size
+        if len(values) != 12:
+            return f"Error: Expected 12 inputs, got {len(values)}"
+
+        data = np.array(values).reshape(1, -1)
+
+        # 🔴 debug logs (very useful)
+        print("Input:", data)
+
+        scaled = scaler.transform(data)
+        seq = np.repeat(scaled, 10, axis=0).reshape(1, 10, -1)
+
+        pred = model.predict(seq)[0][0]
+        cat = categorize(pred)
+
+        return render_template(
+            'index.html',
+            prediction=round(pred, 2),
+            category=cat,
+            advice=advice(cat),
+            raw=list(data[0]),
+            norm=list(scaled[0])
+        )
+
+    except Exception as e:
+        print("ERROR:", str(e))
+        return f"Internal Server Error: {str(e)}"
 
 
-# 🔹 Entry point (only for local run, not used by gunicorn but safe to keep)
+# Entry
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port, debug=False)
+    app.run(host="0.0.0.0", port=port)
