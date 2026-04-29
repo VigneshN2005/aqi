@@ -14,7 +14,7 @@ def load_resources():
     global model, scaler
     if model is None:
         print("Loading model...")
-        model = load_model("air_quality_model.keras", compile=False)
+        model = load_model("air_quality_model.h5", compile=False)
     if scaler is None:
         print("Loading scaler...")
         scaler = joblib.load("scaler.pkl")
