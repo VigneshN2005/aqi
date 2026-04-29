@@ -3,31 +3,33 @@ import numpy as np
 import joblib
 import os
 import tensorflow as tf
-from tensorflow import keras
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import LSTM, Dense, Input
 
 app = Flask(__name__)
-
 model = None
 scaler = None
 
+def build_model():
+    m = Sequential([
+        Input(shape=(10, 12)),
+        LSTM(64, return_sequences=False),
+        Dense(32, activation='relu'),
+        Dense(1, activation='linear')
+    ])
+    return m
 
-# 🔥 Safe + flexible model loading
 def load_resources():
     global model, scaler
-
     if model is None:
-        print("Loading model...")
-
-        model = keras.models.load_model(
-            "air_quality_model.h5",
-            compile=False,
-            safe_mode=False  # 🔥 bypass strict checks
-        )
-
+        print("Building model architecture...")
+        model = build_model()
+        print("Loading weights...")
+        model.load_weights("model.weights.h5")  # <-- weights file from the zip
+        print("Model ready.")
     if scaler is None:
         print("Loading scaler...")
         scaler = joblib.load("scaler.pkl")
-
 
 def categorize(val):
     if val < 1:
@@ -37,7 +39,6 @@ def categorize(val):
     else:
         return "Poor"
 
-
 def advice(cat):
     if cat == "Good":
         return "Air quality is safe for all activities."
@@ -46,34 +47,27 @@ def advice(cat):
     else:
         return "Avoid outdoor exposure. Health risk detected."
 
-
 @app.route('/')
 def home():
     return render_template('index.html')
-
 
 @app.route('/predict', methods=['POST'])
 def predict():
     try:
         load_resources()
-
         values = []
         for key in request.form:
             val = request.form.get(key)
-
             if val is None or val.strip() == "":
                 return "Error: All input fields required"
-
             values.append(float(val))
 
         if len(values) != 12:
             return f"Error: Expected 12 inputs, got {len(values)}"
 
         data = np.array(values).reshape(1, -1)
-
         scaled = scaler.transform(data)
         seq = np.repeat(scaled, 10, axis=0).reshape(1, 10, -1)
-
         pred = model.predict(seq)[0][0]
         cat = categorize(pred)
 
@@ -85,11 +79,9 @@ def predict():
             raw=list(data[0]),
             norm=list(scaled[0])
         )
-
     except Exception as e:
         print("ERROR:", str(e))
         return f"Internal Server Error: {str(e)}"
-
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
